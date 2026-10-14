@@ -1,9 +1,8 @@
-def co_druga_liczba(lista_liczb):
-    lista_liczb = lista_liczb[:10]
-    for i in range(10):
-        if (i % 2 == 0):
-            print(lista_liczb[i])
+def porownanie(liczba1,liczba2,liczba_porownawcza):
+    if(liczba1+liczba2>liczba_porownawcza):
+        return True
+    else:
+        return False
 
-
-lista_liczb = [5, 230, 941, 85, 45, 4, 940, 89412, 50, 24]
-co_druga_liczba(lista_liczb)
+print(porownanie(3,5,9000))
+print(porownanie(3,5,1))

@@ -1,8 +1,9 @@
-def parzyste_liczby(lista_liczb):
-    lista_liczb = lista_liczb[:10]
-    for liczba in lista_liczb:
-        if (liczba%2 == 0):
-            print(liczba)
+def liczba_parzysta(liczba):
+    czy_parzysta = False
+    if (liczba % 2 == 0):
+        czy_parzysta = True
+    return print(f'Liczba jest {"Parzysta" if czy_parzysta else "Nieparzysta"}')
 
-lista_liczb = [5, 230, 941, 85, 45, 4, 940, 89412, 50, 24]
-parzyste_liczby(lista_liczb)
+
+liczba_parzysta(14)
+liczba_parzysta(3)

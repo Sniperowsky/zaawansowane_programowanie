@@ -1,5 +1,5 @@
-def imiona(lista_imion):
-    return lista_imion[:5]
+def przywitanie(name: str, surname: str):
+    x = f"Cześć {name} {surname}!"
+    return print(x)
 
-lista_imion = ['Ada', 'Jaś', 'Tomasz', 'Wiktoria', 'Aleksandra', 'Bartosz']
-print(imiona(lista_imion))
+przywitanie('Jan', 'Kowalski')
