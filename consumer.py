@@ -1,57 +1,40 @@
 import os
 import sys
-import time
-import sqlite3
+import pika
 
-DB_FILE = "baza.db"
-POLL_INTERVAL = 5
+RABBIT_HOST = "localhost"
+RABBIT_PORT = 8081
+QUEUE = "jobs"
 JOB_DURATION = 30
 
 
-def init_db(con):
-    con.execute(
-        """
-        CREATE TABLE IF NOT EXISTS jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            status TEXT NOT NULL DEFAULT 'pending'
-        )
-        """
-    )
+def make_callback(name, con):
+    def on_message(ch, method, properties, body):
+        job_id = body.decode()
+        print(f"[{name}] Zadanie {job_id} -> in_progress")
+        con.sleep(JOB_DURATION)  # sleep, który podtrzymuje połączenie (heartbeat)
+        ch.basic_ack(delivery_tag=method.delivery_tag)  # potwierdzenie = done
+        print(f"[{name}] Zadanie {job_id} -> done")
 
-
-def take_job(con):
-    con.execute("BEGIN IMMEDIATE")
-    try:
-        row = con.execute(
-            "SELECT id FROM jobs WHERE status = 'pending' ORDER BY id LIMIT 1"
-        ).fetchone()
-        if row:
-            con.execute(
-                "UPDATE jobs SET status = 'in_progress' WHERE id = ?", (row[0],)
-            )
-        con.execute("COMMIT")
-    except Exception:
-        con.execute("ROLLBACK")
-        raise
-    return row[0] if row else None
-
-
-def finish_job(con, job_id):
-    con.execute("UPDATE jobs SET status = 'done' WHERE id = ?", (job_id,))
+    return on_message
 
 
 if __name__ == "__main__":
     name = sys.argv[1] if len(sys.argv) > 1 else f"consumer-{os.getpid()}"
-    con = sqlite3.connect(DB_FILE, timeout=10, isolation_level=None)
-    init_db(con)
-    print(f"[{name}] Start")
-    while True:
-        job_id = take_job(con)
-        if job_id is None:
-            print(f"[{name}] Brak pracy, czekam {POLL_INTERVAL}s...")
-            time.sleep(POLL_INTERVAL)
-            continue
-        print(f"[{name}] Zadanie {job_id} -> in_progress")
-        time.sleep(JOB_DURATION)
-        finish_job(con, job_id)
-        print(f"[{name}] Zadanie {job_id} -> done")
+
+    con = pika.BlockingConnection(
+        pika.ConnectionParameters(host=RABBIT_HOST, port=RABBIT_PORT)
+    )
+    channel = con.channel()
+    channel.queue_declare(queue=QUEUE, durable=True)
+
+    # bierz tylko jedno zadanie naraz, następne dopiero po ack
+    channel.basic_qos(prefetch_count=1)
+    channel.basic_consume(queue=QUEUE, on_message_callback=make_callback(name, con))
+
+    print(f"[{name}] Start, czekam na zadania...")
+    try:
+        channel.start_consuming()
+    except KeyboardInterrupt:
+        channel.stop_consuming()
+    con.close()

@@ -1,32 +1,31 @@
 import sys
-import sqlite3
+import pika
 
-DB_FILE = "baza.db"
+RABBIT_HOST = "localhost"
+RABBIT_PORT = 8081
+QUEUE = "jobs"
 
 
-def init_db(con):
-    con.execute(
-        """
-        CREATE TABLE IF NOT EXISTS jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            status TEXT NOT NULL DEFAULT 'pending'
-        )
-        """
+def add_job(channel, job_id):
+    channel.basic_publish(
+        exchange="",
+        routing_key=QUEUE,
+        body=str(job_id),
+        properties=pika.BasicProperties(delivery_mode=2),
     )
-    con.commit()
-
-
-def add_job(con):
-    cur = con.execute("INSERT INTO jobs (status) VALUES ('pending')")
-    con.commit()
-    print(f"Dodano zadanie {cur.lastrowid} (pending)")
+    print(f"Dodano zadanie {job_id} (pending)")
 
 
 if __name__ == "__main__":
     count = int(sys.argv[1]) if len(sys.argv) > 1 else 1
 
-    con = sqlite3.connect(DB_FILE, timeout=10)
-    init_db(con)
-    for _ in range(count):
-        add_job(con)
+    con = pika.BlockingConnection(
+        pika.ConnectionParameters(host=RABBIT_HOST, port=RABBIT_PORT)
+    )
+    channel = con.channel()
+    channel.queue_declare(queue=QUEUE, durable=True)
+
+    for i in range(1, count + 1):
+        add_job(channel, i)
+
     con.close()
